@@ -231,8 +231,8 @@ powershell -ExecutionPolicy Bypass -File .\build-installer.ps1 -Verify
 
 - `dist\Vela\Vela.exe` がない場合は、自動的に `build.ps1` を実行します。既存のビルドを使う場合は `-SkipAppBuild` を指定してください。
 - `-Verify` を付けると、一時フォルダーへインストールし、`--version` と `--smoke-test` を実行してからアンインストールします。
-- 生成物: `dist\installer\Vela-1.0.0-setup.exe`
-- SHA-256: `dist\installer\Vela-1.0.0-setup.exe.sha256`
+- 生成物: `dist\installer\Vela-1.1.0-setup.exe`
+- SHA-256: `dist\installer\Vela-1.1.0-setup.exe.sha256`
 - インストール先: `%LOCALAPPDATA%\Programs\Vela`（ユーザー単位、管理者権限不要）
 - スタートメニューのショートカットを作成し、デスクトップショートカットは任意で選択できます。
 - アンインストールしても `%APPDATA%\Vela` の設定・履歴・ログは削除されません。
