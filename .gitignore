@@ -1,0 +1,41 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Local application data / build output
+data/
+portable.flag
+build/
+dist/
+*.log
+
+# Generated development artifacts
+tools/screenshot-data/
+tools/screenshot-output/
+tools/smoke-data/
+tools/dist-smoke-data/
+tools/inspect-data/
+
+# Third-party binaries and large test media
+# FFmpeg is downloaded separately; see README.md.
+tools/ffmpeg/bin/
+tools/testmedia/large.mp4
+tools/testmedia/server.pid
+tools/testmedia/*.part
+
+# Local credentials and secrets
+.env
+.env.*
+cookies.txt
+*.cookies
+*.pem
+*.key
+*.p12
+*.pfx
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
