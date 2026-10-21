@@ -2,7 +2,7 @@
 
 **動画を、あなたのライブラリへ。**
 
-Vela は [yt-dlp](https://github.com/yt-dlp/yt-dlp) と FFmpeg を中核にした、Windows 向けのデスクトップ動画ダウンローダーです。PySide6 で構築したダーク／ライト対応の UI に、URL 解析、画質・形式選択、プレイリスト選択、ダウンロードキュー、進捗表示、履歴、設定、診断機能をまとめています。
+Vela は [yt-dlp](https://github.com/yt-dlp/yt-dlp) と FFmpeg を中核にした、日本向けの Windows デスクトップ動画ダウンローダーです。PySide6 で構築した日本語 UI とダーク／ライトテーマを備え、URL 解析、画質・形式選択、プレイリスト選択、ダウンロードキュー、進捗表示、履歴、設定、診断機能をまとめています。
 
 [GitHub リポジトリ](https://github.com/gabigos/vela) · [MIT License](LICENSE)
 
