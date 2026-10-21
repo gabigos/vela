@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QCoreApplication, QEvent, Qt
+from PySide6.QtCore import QCoreApplication, QEvent, QRect, Qt
 from PySide6.QtGui import QAction, QFont, QFontDatabase, QFontInfo
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QPushButton, QWidget
@@ -58,6 +58,32 @@ def test_all_pages_can_be_navigated(runtime) -> None:
         assert window.stack.currentWidget() is not None
     assert window.stack.count() == 5
     assert window.minimumWidth() == 1040
+
+
+def test_nav_indicator_tracks_active_page(runtime) -> None:
+    window = runtime.window
+    window.show()
+    QApplication.processEvents()
+    indicator = window._nav_indicator  # noqa: SLF001
+
+    def expected(page: str) -> QRect:
+        button = window._nav_buttons[page]  # noqa: SLF001
+        target = QRect(
+            button.mapTo(indicator.parentWidget(), button.rect().topLeft()),
+            button.size(),
+        )
+        target.adjust(0, 1, 0, -1)
+        return target
+
+    for page in ("home", "queue", "history", "settings", "diagnostics"):
+        window.navigate(page, animate=False)
+        QApplication.processEvents()
+        assert indicator.isVisible()
+        assert indicator.geometry() == expected(page)
+
+    window.navigate("queue", animate=True)
+    QTest.qWait(260)
+    assert indicator.geometry() == expected("queue")
 
 
 def test_theme_switch_updates_controls(runtime) -> None:

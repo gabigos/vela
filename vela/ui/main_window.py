@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Property, QPropertyAnimation, Qt, QTimer, QUrl
+from PySide6.QtCore import Property, QPropertyAnimation, QRect, Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QColor,
     QDesktopServices,
@@ -38,7 +38,14 @@ from .pages.history import HistoryPage
 from .pages.home import HomePage
 from .pages.queue import QueuePage
 from .pages.settings import SettingsPage
-from .theme import EASING, MOTION_BASE, apply_window_theme, current_palette
+from .theme import (
+    EASING,
+    MOTION_BASE,
+    MOTION_FAST,
+    animations_enabled,
+    apply_window_theme,
+    current_palette,
+)
 from .widgets import (
     MotionButton,
     Spinner,
@@ -104,7 +111,7 @@ class MainWindow(QMainWindow):
         self._restored = False
         self._fade_animation = QPropertyAnimation(self)
         self._fade_animation.setPropertyName(b"opacity")
-        self._fade_animation.setDuration(MOTION_BASE)
+        self._fade_animation.setDuration(MOTION_FAST)
         self._fade_animation.setEasingCurve(EASING)
         self._fade_animation.finished.connect(self._finish_page_fade)
         self._fade_overlay: _FadeOverlay | None = None
@@ -217,6 +224,15 @@ class MainWindow(QMainWindow):
 
         self._nav_group = QButtonGroup(self)
         self._nav_group.setExclusive(True)
+        self._nav_indicator = QFrame(sidebar)
+        self._nav_indicator.setObjectName("navIndicator")
+        self._nav_indicator.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self._nav_indicator.hide()
+        self._nav_indicator_animation = QPropertyAnimation(
+            self._nav_indicator, b"geometry", self
+        )
+        self._nav_indicator_animation.setDuration(MOTION_BASE)
+        self._nav_indicator_animation.setEasingCurve(EASING)
         for key, (label, description) in _PAGE_META.items():
             button = MotionButton(label, sidebar)
             button.setProperty("variant", "nav")
@@ -339,6 +355,8 @@ class MainWindow(QMainWindow):
         self._page_title.setText(title)
         self._page_subtitle.setText(subtitle)
         self._update_nav_icons()
+        if button is not None:
+            self._move_nav_indicator(button, animate=animate and changed)
         if changed and animate:
             self._fade_in(target)
         if page == "queue":
@@ -346,9 +364,32 @@ class MainWindow(QMainWindow):
         if button is not None:
             button.setFocus(Qt.OtherFocusReason)
 
-    def _fade_in(self, _widget: QWidget) -> None:
-        from .theme import animations_enabled
+    def _move_nav_indicator(self, button: QPushButton, *, animate: bool) -> None:
+        indicator = getattr(self, "_nav_indicator", None)
+        if indicator is None:
+            return
+        parent = indicator.parentWidget()
+        if parent is None:
+            return
+        target = QRect(button.mapTo(parent, button.rect().topLeft()), button.size())
+        target.adjust(0, 1, 0, -1)
+        animation = self._nav_indicator_animation
+        animation.stop()
+        was_visible = indicator.isVisible()
+        indicator.show()
+        if not animate or not animations_enabled() or not was_visible:
+            indicator.setGeometry(target)
+            return
+        animation.setStartValue(indicator.geometry())
+        animation.setEndValue(target)
+        animation.start()
 
+    def _sync_nav_indicator(self) -> None:
+        button = self._nav_buttons.get(self._current_page)
+        if button is not None:
+            self._move_nav_indicator(button, animate=False)
+
+    def _fade_in(self, _widget: QWidget) -> None:
         animation = self._fade_animation
         animation.stop()
         if self._fade_overlay is not None:
@@ -362,7 +403,7 @@ class MainWindow(QMainWindow):
         overlay.show()
         overlay.raise_()
         animation.setTargetObject(overlay)
-        animation.setStartValue(0.75)
+        animation.setStartValue(0.35)
         animation.setEndValue(0.0)
         self._fade_overlay = overlay
         animation.start()
@@ -645,6 +686,7 @@ class MainWindow(QMainWindow):
     def showEvent(self, event) -> None:  # noqa: N802
         super().showEvent(event)
         QTimer.singleShot(0, lambda: apply_window_theme(self))
+        QTimer.singleShot(0, self._sync_nav_indicator)
         if not self._restored:
             self._restored = True
             QTimer.singleShot(260, self._restore_session)
@@ -681,6 +723,8 @@ class MainWindow(QMainWindow):
             self._page_subtitle.setVisible(self.width() >= 1160)
         if getattr(self, "stack", None) is not None and self._fade_overlay is not None:
             self._fade_overlay.setGeometry(self.stack.rect())
+        if hasattr(self, "_nav_indicator"):
+            self._sync_nav_indicator()
         if hasattr(self, "toasts"):
             self.toasts.reposition()
 

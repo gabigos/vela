@@ -689,6 +689,12 @@ QPushButton[variant="danger"]:disabled {
     color: @text_muted;
     border-color: @border;
 }
+QFrame#navIndicator {
+    background-color: @nav_active;
+    border: none;
+    border-left: 3px solid @accent;
+    border-radius: 10px;
+}
 QPushButton[variant="nav"] {
     text-align: left;
     padding: 10px 12px 10px 9px;
@@ -703,14 +709,14 @@ QPushButton[variant="nav"]:hover {
     color: @text;
 }
 QPushButton[variant="nav"]:checked {
-    background-color: @nav_active;
-    border-left-color: @accent;
+    background-color: transparent;
+    border-left-color: transparent;
     color: @text;
     font-weight: 600;
 }
-QPushButton[variant="nav"]:focus {
-    border: 1px solid @accent;
-    border-left: 3px solid @accent;
+QPushButton[variant="nav"]:focus:!checked {
+    border: 1px solid @accent_border;
+    border-left: 3px solid transparent;
 }
 QPushButton[variant="chip"] {
     background-color: @surface_alt;
