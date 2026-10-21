@@ -11,7 +11,7 @@ from shiboken6 import isValid
 
 from vela.app import create_runtime
 from vela.core.ffmpeg_tools import discover_ffmpeg
-from vela.core.models import PlaylistEntry, VideoInfo
+from vela.core.models import FormatInfo, PlaylistEntry, VideoInfo
 from vela.core.paths import app_root
 from vela.ui.dialogs import ConfirmDialog
 from vela.ui.theme import set_animations_enabled
@@ -84,6 +84,81 @@ def test_nav_indicator_tracks_active_page(runtime) -> None:
     window.navigate("queue", animate=True)
     QTest.qWait(260)
     assert indicator.geometry() == expected("queue")
+
+
+def test_duplicate_toasts_collapse_and_stack_without_overlap(runtime) -> None:
+    window = runtime.window
+    window.show()
+    message = ("URL をコピーしました", "https://example.com/watch?v=abc")
+    for _ in range(3):
+        window.toast(*message, "success")
+
+    QApplication.processEvents()
+    assert len(window.toasts._toasts) == 1  # noqa: SLF001
+
+    window.toast("通知A", "1")
+    window.toast("通知B", "2")
+    window.toast("通知C", "3")
+    QApplication.processEvents()
+    QTest.qWait(30)
+
+    toasts = window.toasts._toasts  # noqa: SLF001
+    assert len(toasts) == 2
+    ordered = sorted(toasts, key=lambda toast: toast.geometry().top())
+    assert ordered[0].geometry().bottom() < ordered[1].geometry().top()
+
+
+def test_format_table_uses_single_checkbox_selection(runtime) -> None:
+    window = runtime.window
+    window.show()
+    home = window.home
+    info = VideoInfo(
+        url="https://example.com/watch?v=abc",
+        title="Example",
+        formats=[
+            FormatInfo(
+                format_id="137",
+                ext="mp4",
+                height=1080,
+                fps=30,
+                vcodec="avc1.640028",
+            ),
+            FormatInfo(
+                format_id="136",
+                ext="mp4",
+                height=720,
+                fps=30,
+                vcodec="avc1.4d401f",
+            ),
+        ],
+    )
+    home._video = info  # noqa: SLF001
+    home._render_result(info)  # noqa: SLF001
+    QApplication.processEvents()
+    home._format_segment.set_value("custom", emit=True)  # noqa: SLF001
+    QApplication.processEvents()
+
+    table = home._format_table  # noqa: SLF001
+    assert table is not None
+    assert table.columnCount() == 6
+    assert table.horizontalHeaderItem(0).text() == "選択"
+
+    def checked_rows() -> list[int]:
+        return [
+            row
+            for row in range(table.rowCount())
+            if table.item(row, 0) is not None
+            and table.item(row, 0).checkState() == Qt.Checked
+        ]
+
+    initial = checked_rows()
+    assert len(initial) == 1
+    target = 1 if initial[0] != 1 else 0
+    table.item(target, 0).setCheckState(Qt.Checked)
+    QApplication.processEvents()
+
+    assert checked_rows() == [target]
+    assert home._selected_key == table.item(target, 0).data(Qt.UserRole)  # noqa: SLF001
 
 
 def test_theme_switch_updates_controls(runtime) -> None:

@@ -171,6 +171,7 @@ class HomePage(QWidget):
         self._selected_option: FormatOption | None = None
         self._selected_key = "best"
         self._format_table: QTableWidget | None = None
+        self._format_updating = False
         self._table_wrap: QWidget | None = None
         self._format_segment: SegmentedControl | None = None
         self._summary_label: QLabel | None = None
@@ -530,6 +531,7 @@ class HomePage(QWidget):
                 widget.deleteLater()
         self._thumb_widgets.clear()
         self._format_table = None
+        self._format_updating = False
         self._table_wrap = None
         self._format_segment = None
         self._summary_label = None
@@ -635,7 +637,7 @@ class HomePage(QWidget):
         head.setSpacing(10)
         head.addWidget(make_label("画質と形式", "h2"))
         head.addStretch(1)
-        head.addWidget(make_label("利用可能な形式から選択", "caption"))
+        head.addWidget(make_label("利用可能な形式から1つ選択", "caption"))
         layout.addLayout(head)
 
         segment = SegmentedControl(
@@ -689,8 +691,10 @@ class HomePage(QWidget):
         table_wrap = QWidget(card)
         table_layout = QVBoxLayout(table_wrap)
         table_layout.setContentsMargins(0, 0, 0, 0)
-        table = QTableWidget(0, 5, table_wrap)
-        table.setHorizontalHeaderLabels(["画質", "形式", "コーデック", "サイズ", "種類"])
+        table = QTableWidget(0, 6, table_wrap)
+        table.setHorizontalHeaderLabels(
+            ["選択", "画質", "形式", "コーデック", "サイズ", "種類"]
+        )
         table.verticalHeader().setVisible(False)
         table.setSelectionBehavior(QTableWidget.SelectRows)
         table.setSelectionMode(QTableWidget.SingleSelection)
@@ -703,10 +707,12 @@ class HomePage(QWidget):
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.Stretch)
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.Stretch)
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         table.cellClicked.connect(self._on_format_row_clicked)
+        table.itemChanged.connect(self._on_format_item_changed)
         table_layout.addWidget(table)
         self._format_table = table
         self._table_wrap = table_wrap
@@ -890,49 +896,74 @@ class HomePage(QWidget):
         if table is None:
             return
         table.setRowCount(0)
-        row_height = max(
-            34, QFontMetrics(table.font()).height() + 17
-        )
-        for option in self._options:
-            if option.kind == "preset":
-                continue
-            row = table.rowCount()
-            table.insertRow(row)
-            if option.kind == "audio":
-                kind = "音声のみ"
-                quality = option.label.replace("音声のみ（", "").replace("）", "")
-            elif option.height:
-                kind = "映像＋音声" if not option.requires_ffmpeg else "映像のみ"
-                quality = option.label
-            else:
-                kind = "映像のみ" if option.requires_ffmpeg else "映像＋音声"
-                quality = option.label
-            items = [
-                quality,
-                (option.ext or "—").upper(),
-                " / ".join(part for part in (option.vcodec, option.acodec) if part) or "—",
-                option.size_text if option.filesize else "—",
-                kind,
-            ]
-            for column, text in enumerate(items):
-                item = QTableWidgetItem(text)
-                item.setData(Qt.UserRole, option.key)
-                if column == 1:
-                    item.setTextAlignment(Qt.AlignCenter)
-                table.setItem(row, column, item)
-            table.setRowHeight(row, row_height)
+        row_height = max(34, QFontMetrics(table.font()).height() + 17)
+        selected_key = self._selected_option.key if self._selected_option else ""
+        self._format_updating = True
+        try:
+            for option in self._options:
+                if option.kind == "preset":
+                    continue
+                row = table.rowCount()
+                table.insertRow(row)
+                if option.kind == "audio":
+                    kind = "音声のみ"
+                    quality = option.label.replace("音声のみ（", "").replace("）", "")
+                elif option.height:
+                    kind = "映像＋音声" if not option.requires_ffmpeg else "映像のみ"
+                    quality = option.label
+                else:
+                    kind = "映像のみ" if option.requires_ffmpeg else "映像＋音声"
+                    quality = option.label
+                check = QTableWidgetItem()
+                check.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+                check.setData(Qt.UserRole, option.key)
+                check.setCheckState(
+                    Qt.Checked if option.key == selected_key else Qt.Unchecked
+                )
+                table.setItem(row, 0, check)
+                items = [
+                    quality,
+                    (option.ext or "—").upper(),
+                    " / ".join(
+                        part for part in (option.vcodec, option.acodec) if part
+                    )
+                    or "—",
+                    option.size_text if option.filesize else "—",
+                    kind,
+                ]
+                for column, text in enumerate(items, start=1):
+                    item = QTableWidgetItem(text)
+                    item.setData(Qt.UserRole, option.key)
+                    if column == 2:
+                        item.setTextAlignment(Qt.AlignCenter)
+                    table.setItem(row, column, item)
+                table.setRowHeight(row, row_height)
+        finally:
+            self._format_updating = False
         self._sync_format_table()
 
     def _sync_format_table(self) -> None:
         table = self._format_table
-        if table is None or self._selected_option is None:
+        if table is None:
             return
-        for row in range(table.rowCount()):
-            item = table.item(row, 0)
-            if item and item.data(Qt.UserRole) == self._selected_option.key:
-                table.selectRow(row)
-                return
-        table.clearSelection()
+        selected_key = self._selected_option.key if self._selected_option else ""
+        selected_row = -1
+        self._format_updating = True
+        try:
+            for row in range(table.rowCount()):
+                item = table.item(row, 0)
+                if item is None:
+                    continue
+                checked = item.data(Qt.UserRole) == selected_key
+                item.setCheckState(Qt.Checked if checked else Qt.Unchecked)
+                if checked:
+                    selected_row = row
+        finally:
+            self._format_updating = False
+        if selected_row >= 0:
+            table.selectRow(selected_row)
+        else:
+            table.clearSelection()
 
     def _segment_value_for(self, option: FormatOption | None) -> str:
         if option is None:
@@ -986,11 +1017,32 @@ class HomePage(QWidget):
         item = table.item(row, 0)
         if item is None:
             return
-        option = find_option(self._options, str(item.data(Qt.UserRole)))
-        if option is not None:
-            self._apply_format_selection(option, sync_segment=True)
-            if self._format_segment is not None:
-                self._format_segment.set_value("custom", emit=False)
+        if item.checkState() != Qt.Checked:
+            item.setCheckState(Qt.Checked)
+
+    def _on_format_item_changed(self, item: QTableWidgetItem) -> None:
+        if self._format_updating or item.column() != 0:
+            return
+        table = self._format_table
+        if table is None:
+            return
+        option = find_option(self._options, str(item.data(Qt.UserRole) or ""))
+        if option is None:
+            return
+        # The format table is a single-choice control.  A checkable item can
+        # technically be unchecked by the user, so restore the clicked item
+        # and clear every other checkbox.
+        self._format_updating = True
+        try:
+            for row in range(table.rowCount()):
+                other = table.item(row, 0)
+                if other is not None:
+                    other.setCheckState(
+                        Qt.Checked if other is item else Qt.Unchecked
+                    )
+        finally:
+            self._format_updating = False
+        self._apply_format_selection(option, sync_segment=True)
 
     def _apply_format_selection(self, option: FormatOption, *, sync_segment: bool) -> None:
         self._selected_option = option

@@ -925,7 +925,9 @@ class ToastWidget(QFrame):
         super().__init__(parent)
         self.setProperty("role", "toast")
         self.setFixedWidth(380)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self._closing = False
+        self._signature = (title, message, kind, action_label)
         palette = current_palette()
         colors = {
             "success": (palette.success, "check-circle"),
@@ -970,6 +972,24 @@ class ToastWidget(QFrame):
         self._close_timer.timeout.connect(self.dismiss)
         self._close_timer.start()
         self._appear()
+
+    def matches(
+        self,
+        title: str,
+        message: str,
+        kind: str,
+        action_label: str,
+    ) -> bool:
+        return not self._closing and self._signature == (
+            title,
+            message,
+            kind,
+            action_label,
+        )
+
+    def refresh(self) -> None:
+        if not self._closing:
+            self._close_timer.start()
 
     def _appear(self) -> None:
         if not animations_enabled():
@@ -1048,6 +1068,12 @@ class ToastHost(QWidget):
         action_label: str = "",
         action_callback: Callable[[], None] | None = None,
     ) -> None:
+        for existing in self._toasts:
+            if existing.matches(title, message, kind, action_label):
+                existing.refresh()
+                existing.raise_()
+                self._reposition()
+                return
         toast = ToastWidget(
             title,
             message,
@@ -1059,14 +1085,13 @@ class ToastHost(QWidget):
         toast.closed.connect(self._remove)
         self._toasts.append(toast)
         self._layout.addWidget(toast, 0, Qt.AlignRight)
-        while len(self._toasts) > 3:
-            oldest = self._toasts[0]
-            self._remove(oldest)
-            oldest.deleteLater()
+        while len(self._toasts) > 2:
+            self._remove(self._toasts[0])
         self.show()
         self.raise_()
-        self._reposition()
         toast.show()
+        self._reposition()
+        QTimer.singleShot(0, self._reposition)
 
     def _remove(self, toast: ToastWidget) -> None:
         if toast in self._toasts:
@@ -1084,6 +1109,7 @@ class ToastHost(QWidget):
             return
         self._repositioning = True
         try:
+            self._layout.invalidate()
             self._layout.activate()
             height = self._layout.sizeHint().height()
             width = self._host_width
