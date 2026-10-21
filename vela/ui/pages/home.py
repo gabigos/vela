@@ -696,11 +696,13 @@ class HomePage(QWidget):
             ["選択", "画質", "形式", "コーデック", "サイズ", "種類"]
         )
         table.verticalHeader().setVisible(False)
+        # Only the checkable first column is interactive.  Row/cell clicks
+        # must not change the selection or paint a focus rectangle.
         table.setSelectionBehavior(QTableWidget.SelectRows)
-        table.setSelectionMode(QTableWidget.SingleSelection)
+        table.setSelectionMode(QTableWidget.NoSelection)
         table.setEditTriggers(QTableWidget.NoEditTriggers)
         table.setShowGrid(False)
-        table.setFocusPolicy(Qt.StrongFocus)
+        table.setFocusPolicy(Qt.NoFocus)
         table.setAlternatingRowColors(False)
         table.setMinimumHeight(196)
         table.setMaximumHeight(250)
@@ -711,7 +713,6 @@ class HomePage(QWidget):
         header.setSectionResizeMode(3, QHeaderView.Stretch)
         header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        table.cellClicked.connect(self._on_format_row_clicked)
         table.itemChanged.connect(self._on_format_item_changed)
         table_layout.addWidget(table)
         self._format_table = table
@@ -947,7 +948,6 @@ class HomePage(QWidget):
         if table is None:
             return
         selected_key = self._selected_option.key if self._selected_option else ""
-        selected_row = -1
         self._format_updating = True
         try:
             for row in range(table.rowCount()):
@@ -956,14 +956,8 @@ class HomePage(QWidget):
                     continue
                 checked = item.data(Qt.UserRole) == selected_key
                 item.setCheckState(Qt.Checked if checked else Qt.Unchecked)
-                if checked:
-                    selected_row = row
         finally:
             self._format_updating = False
-        if selected_row >= 0:
-            table.selectRow(selected_row)
-        else:
-            table.clearSelection()
 
     def _segment_value_for(self, option: FormatOption | None) -> str:
         if option is None:
@@ -1009,16 +1003,6 @@ class HomePage(QWidget):
             self._table_wrap.setVisible(visible)
             if visible:
                 self._sync_format_table()
-
-    def _on_format_row_clicked(self, row: int, _column: int) -> None:
-        table = self._format_table
-        if table is None:
-            return
-        item = table.item(row, 0)
-        if item is None:
-            return
-        if item.checkState() != Qt.Checked:
-            item.setCheckState(Qt.Checked)
 
     def _on_format_item_changed(self, item: QTableWidgetItem) -> None:
         if self._format_updating or item.column() != 0:

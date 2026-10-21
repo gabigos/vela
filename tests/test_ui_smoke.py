@@ -160,6 +160,18 @@ def test_format_table_uses_single_checkbox_selection(runtime) -> None:
     assert checked_rows() == [target]
     assert home._selected_key == table.item(target, 0).data(Qt.UserRole)  # noqa: SLF001
 
+    selected_before = home._selected_key  # noqa: SLF001
+    text_rect = table.visualItemRect(table.item(0, 2))
+    QTest.mouseClick(table.viewport(), Qt.LeftButton, pos=text_rect.center())
+    QApplication.processEvents()
+    assert checked_rows() == [target]
+    assert home._selected_key == selected_before  # noqa: SLF001
+
+    check_rect = table.visualItemRect(table.item(0, 0))
+    QTest.mouseClick(table.viewport(), Qt.LeftButton, pos=check_rect.center())
+    QApplication.processEvents()
+    assert checked_rows() == [0]
+
 
 def test_theme_switch_updates_controls(runtime) -> None:
     window = runtime.window
