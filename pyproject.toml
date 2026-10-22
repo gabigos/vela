@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vela"
-version = "1.1.0"
+version = "1.2.0"
 description = "Vela — a Japanese-oriented Windows desktop video downloader built with PySide6 and yt-dlp"
 readme = "README.md"
 requires-python = ">=3.11"
