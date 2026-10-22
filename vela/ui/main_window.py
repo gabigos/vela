@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Property, QPointF, QPropertyAnimation, QRect, Qt, QTimer, QUrl
+from PySide6.QtCore import QPointF, QPropertyAnimation, QRect, Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -43,7 +44,6 @@ from .pages.queue import QueuePage
 from .pages.settings import SettingsPage
 from .theme import (
     EASING,
-    MOTION_BASE,
     MOTION_FAST,
     animations_enabled,
     apply_window_theme,
@@ -122,40 +122,6 @@ class _Backdrop(QWidget):
         painter.end()
 
 
-class _FadeOverlay(QWidget):
-    """Lightweight backdrop used to fade a page in without re-compositing it.
-
-    A QGraphicsOpacityEffect on a full page forces Qt to render the whole page
-    into an offscreen pixmap for every animation frame.  A solid overlay that
-    fades out paints only a rectangle and leaves the page itself at full
-    quality.
-    """
-
-    def __init__(self, parent: QWidget) -> None:
-        super().__init__(parent)
-        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
-        self.setAttribute(Qt.WA_NoSystemBackground, True)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.setFocusPolicy(Qt.NoFocus)
-        self._opacity = 0.75
-
-    def _get_opacity(self) -> float:
-        return self._opacity
-
-    def _set_opacity(self, value: float) -> None:
-        self._opacity = value
-        self.update()
-
-    opacity = Property(float, _get_opacity, _set_opacity)
-
-    def paintEvent(self, event) -> None:  # noqa: N802
-        color = QColor(current_palette().bg)
-        color.setAlphaF(max(0.0, min(1.0, self._opacity)))
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), color)
-        painter.end()
-
-
 class MainWindow(QMainWindow):
     def __init__(self, ctx: AppContext, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -163,12 +129,6 @@ class MainWindow(QMainWindow):
         self._current_page = "home"
         self._closing = False
         self._restored = False
-        self._fade_animation = QPropertyAnimation(self)
-        self._fade_animation.setPropertyName(b"opacity")
-        self._fade_animation.setDuration(MOTION_FAST)
-        self._fade_animation.setEasingCurve(EASING)
-        self._fade_animation.finished.connect(self._finish_page_fade)
-        self._fade_overlay: _FadeOverlay | None = None
         self._nav_buttons: dict[str, QPushButton] = {}
         self._nav_badges: dict[str, QLabel] = {}
         self.setWindowTitle(f"Vela {__version__} — 動画ダウンローダー")
@@ -282,11 +242,19 @@ class MainWindow(QMainWindow):
         self._nav_indicator.setObjectName("navIndicator")
         self._nav_indicator.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self._nav_indicator.hide()
+        self._nav_indicator_effect = QGraphicsOpacityEffect(self._nav_indicator)
+        self._nav_indicator_effect.setOpacity(1.0)
+        self._nav_indicator.setGraphicsEffect(self._nav_indicator_effect)
         self._nav_indicator_animation = QPropertyAnimation(
             self._nav_indicator, b"geometry", self
         )
-        self._nav_indicator_animation.setDuration(MOTION_BASE)
+        self._nav_indicator_animation.setDuration(MOTION_FAST)
         self._nav_indicator_animation.setEasingCurve(EASING)
+        self._nav_indicator_opacity = QPropertyAnimation(
+            self._nav_indicator_effect, b"opacity", self
+        )
+        self._nav_indicator_opacity.setDuration(MOTION_FAST)
+        self._nav_indicator_opacity.setEasingCurve(EASING)
         for key, (label, description) in _PAGE_META.items():
             button = MotionButton(label, sidebar)
             button.setProperty("variant", "nav")
@@ -411,8 +379,6 @@ class MainWindow(QMainWindow):
         self._update_nav_icons()
         if button is not None:
             self._move_nav_indicator(button, animate=animate and changed)
-        if changed and animate:
-            self._fade_in(target)
         if page == "queue":
             self._update_queue_badge()
         if button is not None:
@@ -428,45 +394,34 @@ class MainWindow(QMainWindow):
         target = QRect(button.mapTo(parent, button.rect().topLeft()), button.size())
         target.adjust(0, 1, 0, -1)
         animation = self._nav_indicator_animation
+        opacity = self._nav_indicator_opacity
         animation.stop()
+        opacity.stop()
         was_visible = indicator.isVisible()
+        previous_top = indicator.geometry().top()
         indicator.show()
         if not animate or not animations_enabled() or not was_visible:
             indicator.setGeometry(target)
+            self._nav_indicator_effect.setOpacity(1.0)
             return
-        animation.setStartValue(indicator.geometry())
+        # Keep the motion local to the selected tab.  A full-height slide
+        # would pass underneath unrelated labels and make the text colours
+        # look disconnected from the highlight.
+        direction = 1 if target.top() >= previous_top else -1
+        start = target.translated(0, 6 * direction)
+        indicator.setGeometry(start)
+        self._nav_indicator_effect.setOpacity(0.35)
+        animation.setStartValue(start)
         animation.setEndValue(target)
+        opacity.setStartValue(0.35)
+        opacity.setEndValue(1.0)
         animation.start()
+        opacity.start()
 
     def _sync_nav_indicator(self) -> None:
         button = self._nav_buttons.get(self._current_page)
         if button is not None:
             self._move_nav_indicator(button, animate=False)
-
-    def _fade_in(self, _widget: QWidget) -> None:
-        animation = self._fade_animation
-        animation.stop()
-        if self._fade_overlay is not None:
-            self._fade_overlay.hide()
-            self._fade_overlay.deleteLater()
-            self._fade_overlay = None
-        if not animations_enabled():
-            return
-        overlay = _FadeOverlay(self.stack)
-        overlay.setGeometry(self.stack.rect())
-        overlay.show()
-        overlay.raise_()
-        animation.setTargetObject(overlay)
-        animation.setStartValue(0.35)
-        animation.setEndValue(0.0)
-        self._fade_overlay = overlay
-        animation.start()
-
-    def _finish_page_fade(self) -> None:
-        if self._fade_overlay is not None:
-            self._fade_overlay.hide()
-            self._fade_overlay.deleteLater()
-            self._fade_overlay = None
 
     # --------------------------------------------------------------- signals
     def _connect_signals(self) -> None:
@@ -777,8 +732,6 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if hasattr(self, "_page_subtitle"):
             self._page_subtitle.setVisible(self.width() >= 1160)
-        if getattr(self, "stack", None) is not None and self._fade_overlay is not None:
-            self._fade_overlay.setGeometry(self.stack.rect())
         if hasattr(self, "_nav_indicator"):
             self._sync_nav_indicator()
         if hasattr(self, "toasts"):

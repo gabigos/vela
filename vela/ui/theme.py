@@ -444,7 +444,7 @@ QFrame[role="topbar"] {
 QWidget[role="activity"] {
     background-color: @glass_alt;
     border: 1px solid @glass_border;
-    border-radius: 999px;
+    border-radius: 12px;
 }
 QWidget[role="activity"] QLabel {
     color: @accent;
@@ -603,7 +603,7 @@ QLabel[role="accent"] { color: @accent; }
 QLabel[role="pill"] {
     background-color: @glass_alt;
     border: 1px solid @glass_border;
-    border-radius: 999px;
+    border-radius: 10px;
     padding: 4px 10px;
     color: @text_secondary;
     font-size: 8.5pt;
@@ -632,19 +632,20 @@ QPushButton:disabled {
     background-color: transparent;
 }
 QPushButton[variant="primary"] {
-    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 @gradient_a, stop:1 @gradient_b);
+    background-color: @gradient_a;
     color: @on_accent;
     border: 1px solid rgba(255, 255, 255, 60);
-    border-radius: 999px;
+    border-radius: 18px;
+    min-height: 36px;
     padding: 10px 20px;
     font-weight: 600;
 }
 QPushButton[variant="primary"]:hover {
-    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 @accent, stop:1 @gradient_a);
+    background-color: @gradient_b;
     color: @on_accent;
 }
 QPushButton[variant="primary"]:pressed {
-    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 @accent_strong, stop:1 @gradient_a);
+    background-color: @accent_strong;
 }
 QPushButton[variant="primary"]:focus {
     border: 2px solid @on_accent;
@@ -657,7 +658,8 @@ QPushButton[variant="primary"]:disabled {
 QPushButton[variant="secondary"] {
     background-color: @glass_alt;
     border: 1px solid @glass_border;
-    border-radius: 999px;
+    border-radius: 18px;
+    min-height: 36px;
     color: @text_secondary;
 }
 QPushButton[variant="secondary"]:hover {
@@ -713,7 +715,8 @@ QPushButton[variant="danger"] {
     background-color: @danger_soft;
     color: @danger;
     border: 1px solid transparent;
-    border-radius: 999px;
+    border-radius: 18px;
+    min-height: 36px;
 }
 QPushButton[variant="danger"]:hover {
     background-color: @danger;
@@ -732,16 +735,16 @@ QPushButton[variant="danger"]:disabled {
     border-color: @border;
 }
 QFrame#navIndicator {
-    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 @gradient_a, stop:1 @gradient_b);
+    background-color: @gradient_a;
     border: 1px solid rgba(255, 255, 255, 48);
-    border-radius: 999px;
+    border-radius: 20px;
 }
 QPushButton[variant="nav"] {
     text-align: left;
     padding: 11px 14px;
     color: @text_secondary;
     border: 1px solid transparent;
-    border-radius: 999px;
+    border-radius: 20px;
     font-weight: 500;
 }
 QPushButton[variant="nav"]:hover {
@@ -759,7 +762,7 @@ QPushButton[variant="nav"]:focus:!checked {
 QPushButton[variant="chip"] {
     background-color: @glass_alt;
     border: 1px solid @glass_border;
-    border-radius: 999px;
+    border-radius: 12px;
     padding: 6px 12px;
     color: @text_secondary;
     font-size: 9pt;
@@ -784,7 +787,7 @@ QPushButton[variant="chip"]:focus {
 QPushButton[variant="segment"] {
     background-color: transparent;
     border: 1px solid transparent;
-    border-radius: 999px;
+    border-radius: 14px;
     padding: 6px 12px;
     color: @text_muted;
     font-size: 9.5pt;
@@ -1017,7 +1020,7 @@ QProgressBar {
 }
 QProgressBar::chunk {
     border-radius: 4px;
-    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 @gradient_a, stop:1 @gradient_b);
+    background-color: @gradient_a;
 }
 QToolTip {
     background-color: @glass_card;
