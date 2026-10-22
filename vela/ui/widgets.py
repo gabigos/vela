@@ -111,15 +111,20 @@ class MotionButton(QPushButton):
 
     def _motion_radius(self) -> int:
         if self.property("role") == "icon":
-            return 9
-        variant = self.property("variant")
-        if variant == "chip":
             return 14
-        if variant == "segment":
-            return 8
+        variant = self.property("variant")
         if variant == "link":
             return 4
-        return 10
+        half_height = max(1, self.height() // 2)
+        if variant == "segment":
+            return half_height
+        if variant == "nav":
+            return min(20, half_height)
+        if variant in {"primary", "secondary", "danger"}:
+            return min(18, half_height)
+        if variant == "chip":
+            return min(12, half_height)
+        return 14
 
     def enterEvent(self, event) -> None:  # noqa: N802
         if self.isEnabled():
