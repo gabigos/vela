@@ -561,8 +561,8 @@ class SegmentedControl(QWidget):
         if self._indicator.isValid():
             active = self._indicator.adjusted(1, 1, -1, -1)
             gradient = QLinearGradient(active.topLeft(), active.bottomRight())
-            gradient.setColorAt(0, QColor(palette.gradient_a))
-            gradient.setColorAt(1, QColor(palette.gradient_b))
+            gradient.setColorAt(0, QColor(palette.accent_fill))
+            gradient.setColorAt(1, QColor(palette.accent_fill_hover))
             painter.setPen(Qt.NoPen)
             painter.setBrush(gradient)
             painter.drawRoundedRect(active, active.height() / 2, active.height() / 2)

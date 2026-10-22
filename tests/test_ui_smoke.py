@@ -159,6 +159,8 @@ def test_format_table_uses_single_checkbox_selection(runtime) -> None:
 
     assert checked_rows() == [target]
     assert home._selected_key == table.item(target, 0).data(Qt.UserRole)  # noqa: SLF001
+    assert home._format_segment.selected() == "custom"  # noqa: SLF001
+    assert not home._table_wrap.isHidden()  # noqa: SLF001
 
     selected_before = home._selected_key  # noqa: SLF001
     text_rect = table.visualItemRect(table.item(0, 2))

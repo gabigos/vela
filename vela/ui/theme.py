@@ -27,6 +27,8 @@ class Palette:
     text_muted: str
     accent: str
     accent_strong: str
+    accent_fill: str
+    accent_fill_hover: str
     accent_soft: str
     accent_border: str
     accent_text: str
@@ -89,6 +91,15 @@ ACCENT_LABELS = {
     "amber": "アンバー",
 }
 
+# Filled controls use deeper accent tones than icons and links.  Every pair
+# keeps white button text above a 4.5:1 contrast ratio in both themes.
+ACCENT_FILLS: dict[str, tuple[str, str]] = {
+    "indigo": ("#4F46E5", "#4338CA"),
+    "ocean": ("#0E7490", "#155E75"),
+    "rose": ("#BE123C", "#9F1239"),
+    "amber": ("#B45309", "#92400E"),
+}
+
 # Design tokens shared by widgets and pages.  Qt style sheets cannot animate
 # transitions, so motion values live here and are applied by QPropertyAnimation
 # in the shared widgets.  Keeping the numbers in one place makes every screen
@@ -124,6 +135,7 @@ def build_palette(mode: str, accent_name: str = "indigo") -> Palette:
     mode = "light" if mode == "light" else "dark"
     accent_name = accent_name if accent_name in ACCENTS else "indigo"
     accent, gradient_b = ACCENTS[accent_name][mode]
+    accent_fill, accent_fill_hover = ACCENT_FILLS[accent_name]
     if mode == "dark":
         bg = "#080C15"
         bg_elevated = "#0D1422"
@@ -223,6 +235,8 @@ def build_palette(mode: str, accent_name: str = "indigo") -> Palette:
         text_muted=text_muted,
         accent=accent,
         accent_strong=gradient_b,
+        accent_fill=accent_fill,
+        accent_fill_hover=accent_fill_hover,
         accent_soft=accent_soft,
         accent_border=accent_border,
         accent_text=accent,
@@ -632,7 +646,7 @@ QPushButton:disabled {
     background-color: transparent;
 }
 QPushButton[variant="primary"] {
-    background-color: @gradient_a;
+    background-color: @accent_fill;
     color: @on_accent;
     border: 1px solid rgba(255, 255, 255, 60);
     border-radius: 18px;
@@ -641,11 +655,11 @@ QPushButton[variant="primary"] {
     font-weight: 600;
 }
 QPushButton[variant="primary"]:hover {
-    background-color: @gradient_b;
+    background-color: @accent_fill_hover;
     color: @on_accent;
 }
 QPushButton[variant="primary"]:pressed {
-    background-color: @accent_strong;
+    background-color: @accent_fill_hover;
 }
 QPushButton[variant="primary"]:focus {
     border: 2px solid @on_accent;
@@ -735,7 +749,7 @@ QPushButton[variant="danger"]:disabled {
     border-color: @border;
 }
 QFrame#navIndicator {
-    background-color: @gradient_a;
+    background-color: @accent_fill;
     border: 1px solid rgba(255, 255, 255, 48);
     border-radius: 20px;
 }
@@ -802,7 +816,8 @@ QPushButton[variant="segment"]:checked {
     background-color: transparent;
 }
 QPushButton[variant="segment"]:focus {
-    border: 1px solid @accent;
+    border: 1px solid transparent;
+    outline: none;
 }
 QPushButton[variant="segment"][compact="true"] {
     padding: 4px 10px;
@@ -1020,7 +1035,7 @@ QProgressBar {
 }
 QProgressBar::chunk {
     border-radius: 4px;
-    background-color: @gradient_a;
+    background-color: @accent_fill;
 }
 QToolTip {
     background-color: @glass_card;

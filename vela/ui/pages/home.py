@@ -1026,7 +1026,11 @@ class HomePage(QWidget):
                     )
         finally:
             self._format_updating = False
-        self._apply_format_selection(option, sync_segment=True)
+        # Keep the detailed format table open; choosing a concrete row must
+        # not fall back to one of the coarse preset segments.
+        self._apply_format_selection(option, sync_segment=False)
+        if self._format_segment is not None:
+            self._format_segment.set_value("custom", emit=False)
 
     def _apply_format_selection(self, option: FormatOption, *, sync_segment: bool) -> None:
         self._selected_option = option
