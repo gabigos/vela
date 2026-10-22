@@ -21,6 +21,7 @@ from PySide6.QtGui import (
     QFont,
     QFontMetrics,
     QKeyEvent,
+    QLinearGradient,
     QPainter,
     QPainterPath,
     QPen,
@@ -391,6 +392,40 @@ class FlowLayout(QLayout):
         return y + line_height - rect.y() + margins.bottom()
 
 
+class FlowWidget(QWidget):
+    """Widget container that keeps a FlowLayout's wrapped height in sync."""
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        margin: int = 0,
+        spacing: int = 8,
+    ) -> None:
+        super().__init__(parent)
+        self.flow = FlowLayout(self, margin, spacing)
+        policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+        policy.setHeightForWidth(True)
+        self.setSizePolicy(policy)
+        self._last_height = 0
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._sync_height()
+
+    def showEvent(self, event) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._sync_height()
+
+    def _sync_height(self) -> None:
+        if self.width() <= 0:
+            return
+        height = self.flow.heightForWidth(self.width())
+        if height > 0 and height != self._last_height:
+            self._last_height = height
+            self.setMinimumHeight(height)
+
+
 class SegmentedControl(QWidget):
     changed = Signal(str)
 
@@ -515,13 +550,22 @@ class SegmentedControl(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         track = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        painter.setPen(QPen(QColor(palette.border), 1))
-        painter.setBrush(QColor(palette.surface_alt))
-        painter.drawRoundedRect(track, 10, 10)
+        radius = track.height() / 2
+        border = QColor(palette.border)
+        border.setAlpha(90 if palette.is_dark else 110)
+        fill = QColor(palette.surface_alt)
+        fill.setAlpha(100 if palette.is_dark else 150)
+        painter.setPen(QPen(border, 1))
+        painter.setBrush(fill)
+        painter.drawRoundedRect(track, radius, radius)
         if self._indicator.isValid():
-            painter.setPen(QPen(QColor(palette.accent_border), 1))
-            painter.setBrush(QColor(palette.accent_soft))
-            painter.drawRoundedRect(self._indicator.adjusted(1, 1, -1, -1), 8, 8)
+            active = self._indicator.adjusted(1, 1, -1, -1)
+            gradient = QLinearGradient(active.topLeft(), active.bottomRight())
+            gradient.setColorAt(0, QColor(palette.gradient_a))
+            gradient.setColorAt(1, QColor(palette.gradient_b))
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(gradient)
+            painter.drawRoundedRect(active, active.height() / 2, active.height() / 2)
         painter.end()
 
     def resizeEvent(self, event) -> None:  # noqa: N802

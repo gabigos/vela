@@ -3,13 +3,16 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Property, QPropertyAnimation, QRect, Qt, QTimer, QUrl
+from PySide6.QtCore import Property, QPointF, QPropertyAnimation, QRect, Qt, QTimer, QUrl
 from PySide6.QtGui import (
+    QBrush,
     QColor,
     QDesktopServices,
     QFont,
     QKeySequence,
+    QLinearGradient,
     QPainter,
+    QRadialGradient,
     QShortcut,
 )
 from PySide6.QtWidgets import (
@@ -66,6 +69,57 @@ _PAGE_META = {
     "settings": ("設定", "見た目と動作のカスタマイズ"),
     "diagnostics": ("診断", "環境とログの確認"),
 }
+
+
+class _Backdrop(QWidget):
+    """Paints the soft, colour-shifting surface behind the glass panels."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_OpaquePaintEvent, True)
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        palette = current_palette()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        width = max(1, self.width())
+        height = max(1, self.height())
+        base = QLinearGradient(0, 0, width, height)
+        if palette.is_dark:
+            base.setColorAt(0, QColor("#070A14"))
+            base.setColorAt(0.48, QColor("#0A1020"))
+            base.setColorAt(1, QColor("#05070D"))
+        else:
+            base.setColorAt(0, QColor("#F8FBFF"))
+            base.setColorAt(0.5, QColor("#EDF3FC"))
+            base.setColorAt(1, QColor("#FFF7F0"))
+        painter.fillRect(self.rect(), QBrush(base))
+
+        if palette.is_dark:
+            blobs = (
+                (palette.accent, 92, 0.10, 0.02, 0.55),
+                (palette.info, 68, 0.92, 0.08, 0.50),
+                (palette.success, 48, 0.82, 0.82, 0.58),
+                (palette.warning, 30, 0.18, 0.94, 0.44),
+            )
+        else:
+            blobs = (
+                (palette.info, 52, 0.92, 0.02, 0.52),
+                (palette.accent, 42, 0.05, 0.20, 0.48),
+                (palette.warning, 30, 0.78, 0.88, 0.55),
+                (palette.success, 34, 0.18, 0.95, 0.42),
+            )
+        for color_name, alpha, cx, cy, radius in blobs:
+            center = QPointF(cx * width, cy * height)
+            gradient = QRadialGradient(center, radius * max(width, height))
+            inner = QColor(color_name)
+            inner.setAlpha(alpha)
+            outer = QColor(color_name)
+            outer.setAlpha(0)
+            gradient.setColorAt(0, inner)
+            gradient.setColorAt(1, outer)
+            painter.fillRect(self.rect(), QBrush(gradient))
+        painter.end()
 
 
 class _FadeOverlay(QWidget):
@@ -132,22 +186,22 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------- UI
     def _build_ui(self) -> None:
-        central = QWidget(self)
+        central = _Backdrop(self)
         central.setObjectName("centralRoot")
         self.setCentralWidget(central)
         root = QHBoxLayout(central)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        root.setContentsMargins(14, 14, 14, 14)
+        root.setSpacing(14)
         root.addWidget(self._build_sidebar())
 
         right = QWidget(central)
-        right.setObjectName("pageRoot")
+        right.setObjectName("contentShell")
         right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(0)
+        right_layout.setContentsMargins(24, 16, 24, 22)
+        right_layout.setSpacing(8)
         right_layout.addWidget(self._build_topbar())
         self.stack = QStackedWidget(right)
-        self.stack.setObjectName("pageRoot")
+        self.stack.setObjectName("pageStack")
         right_layout.addWidget(self.stack, 1)
         root.addWidget(right, 1)
 
@@ -195,10 +249,10 @@ class MainWindow(QMainWindow):
     def _build_sidebar(self) -> QFrame:
         sidebar = QFrame(self)
         sidebar.setProperty("role", "sidebar")
-        sidebar.setFixedWidth(238)
+        sidebar.setFixedWidth(232)
         layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(16, 20, 16, 16)
-        layout.setSpacing(6)
+        layout.setContentsMargins(18, 22, 18, 18)
+        layout.setSpacing(8)
 
         brand = QWidget(sidebar)
         brand_layout = QHBoxLayout(brand)
@@ -305,7 +359,7 @@ class MainWindow(QMainWindow):
         topbar.setProperty("role", "topbar")
         topbar.setFixedHeight(62)
         layout = QHBoxLayout(topbar)
-        layout.setContentsMargins(26, 0, 20, 0)
+        layout.setContentsMargins(2, 0, 2, 0)
         layout.setSpacing(10)
         self._page_title = make_label("ホーム", "h2")
         layout.addWidget(self._page_title)
@@ -463,7 +517,7 @@ class MainWindow(QMainWindow):
             set_named_icon(
                 button,
                 "home" if key == "home" else key,
-                color="accent" if active else "muted",
+                color="on_accent" if active else "muted",
                 size=18,
             )
 
@@ -584,9 +638,11 @@ class MainWindow(QMainWindow):
                 refresh()
         refresh_named_icons(self)
         self._update_nav_icons()
+        self._update_queue_badge()
         self._update_activity(self.ctx.queue.active_count)
         self.toasts.reposition()
         apply_window_theme(self)
+        self.centralWidget().update()
 
     # ---------------------------------------------------------------- helpers
     def toast(

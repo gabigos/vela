@@ -39,7 +39,7 @@ from ..thumbnail import ThumbnailWidget
 from ..widgets import (
     Card,
     ElidedLabel,
-    FlowLayout,
+    FlowWidget,
     MessageBanner,
     SegmentedControl,
     Spinner,
@@ -318,8 +318,8 @@ class HomePage(QWidget):
         sites_layout.setContentsMargins(14, 12, 14, 14)
         sites_layout.setSpacing(9)
         sites_layout.addWidget(make_label("yt-dlp が対応するサイトの例", "caption"))
-        chips = QWidget(sites_card)
-        flow = FlowLayout(chips, 0, 7)
+        chips = FlowWidget(sites_card, spacing=7)
+        flow = chips.flow
         for site in SUPPORTED_SITES:
             label = make_label(site, "pill")
             label.setContentsMargins(0, 0, 0, 0)
